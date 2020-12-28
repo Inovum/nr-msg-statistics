@@ -1,0 +1,19 @@
+{
+    "name": "nr-msg-statistics",
+    "version": "1.0.0",
+    "description": "A library to offer a ring buffer for Node-RED msg statistics.",
+    "author": {
+          "name": "Bart Butenaers"
+    },
+    "license": "Apache-2.0",
+    "main": "msg_analyzer.js",
+    "keywords": ["msg", "analyzer", "statistics"],
+    "bugs": {
+          "url": "https://github.com/bartbutenaers/nr-msg-statistics/issues"
+    },
+    "homepage": "https://github.com/bartbutenaers/nr-msg-statistics",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bartbutenaers/nr-msg-statistics.git"
+    },
+}
