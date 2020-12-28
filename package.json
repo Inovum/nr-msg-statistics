@@ -1,6 +1,6 @@
 {
     "name": "nr-msg-statistics",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "A library to offer a ring buffer for Node-RED msg statistics.",
     "author": {
           "name": "Bart Butenaers"
