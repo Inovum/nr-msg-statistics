@@ -197,7 +197,7 @@ module.exports = class MessageAnalyzer {
             
             // Update the status in the editor with the last message count (only if it has changed), or when switching between startup and real
             if (this.prevTotalMsgCount != this.totalMsgCount || this.prevStartup != isStartup) {
-                this.changeStatus(totalMsgCount, isStartup);
+                this.changeStatus(totalMsgCount, originalCellContent.msgStatistics, isStartup);
                 
                 this.prevTotalMsgCount = totalMsgCount;
             }
@@ -224,7 +224,7 @@ module.exports = class MessageAnalyzer {
         // The caller should override this method, to send an output message!!!!
     }
     
-    changeStatus(totalMsgCount, isStartup) {
+    changeStatus(totalMsgCount, msgStatistics, isStartup) {
         // The caller should override this method, to change the node status!!!!
     }
 };
