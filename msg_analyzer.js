@@ -204,7 +204,7 @@ module.exports = class MessageAnalyzer {
 
             // Send a message on the first output port, when not ignored during the startup period
             if (this.ignoreStartup == false || isStartup == false) {
-                this.sendMsg(totalMsgCount, originalCellContent.msgStatistics);
+                this.sendMsg(totalMsgCount, newMsgStatistics);
             }
             
             this.prevStartup = isStartup;
@@ -220,11 +220,11 @@ module.exports = class MessageAnalyzer {
         // The caller should override this method, to return the new msg statistics!!!!
     }
     
-    sendMsg(totalMsgCount, msgStatistics) {
+    sendMsg(totalMsgCount, newMsgStatistics) {
         // The caller should override this method, to send an output message!!!!
     }
     
-    changeStatus(totalMsgCount, msgStatistics, isStartup) {
+    changeStatus(totalMsgCount, newMsgStatistics, isStartup) {
         // The caller should override this method, to change the node status!!!!
     }
 };
