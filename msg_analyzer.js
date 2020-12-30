@@ -56,15 +56,26 @@ module.exports = class MessageAnalyzer {
         
         this.bufferSize *= this.interval;
 		
+        // Initialize all variables
         this.reset();
     }
     
+    // Private method.  Don't call this method externally!
     reset() {
         this.circularBuffer = new CircularBuffer(this.bufferSize); 
-        this.msgCount = 0;
+        
+        // Reset the counters of the current second (which will be added to the ring buffer in the next second)
+        this.newMsgCount = 0; // Number of messages that has arrived in the last second
+        this.newMsgStatistic = 0; // Numeric value determined by the subclass
+        
         this.prevStartup = false;
         this.prevTotalMsgCount = 0;
-        this.totalMsgCount = 0;
+        this.prevMsgStatisticInBuffer = 0;
+        
+        // Reset the counters that describe how much is in the entire ring buffer (totol sums of all cells).
+        this.msgCountInBuffer = 0; // Total number of messages that has arrived in the total interval spanned by the ring buffer
+        this.msgStatisticInBuffer = 0; // Numeric value determined by the subclass
+        
         this.startTime = null; // When the first (unprocessed) message has arrived
         this.endTime = null; // When the last (unprocessed) message has arrived
         //this.paused = false; // Don't set 'pause' to false, because this instance can be reset (via a control msg) while it is paused
@@ -76,6 +87,9 @@ module.exports = class MessageAnalyzer {
             clearInterval(this.timer);
             this.timer = null;
         }
+        
+        // Clear all the counters, otherwise we end up with old data when the node is started again
+        this.reset();
     }
     
     resume() {
@@ -85,6 +99,9 @@ module.exports = class MessageAnalyzer {
             
             // Restart the timing again as soon as the speed measurement has been resumed
             this.startTime = new Date().getTime();
+            
+            // Make sure the timer is started (without processing a real msg)
+            this.process(null);
         }
     }
     
@@ -108,9 +125,6 @@ module.exports = class MessageAnalyzer {
                 // An msg has arrived during the specified (timeout) interval, so remove the (timeout) timer.
                 clearInterval(this.timer);
             }
-
-            this.msgCount += 1;
-            //console.log("New msg arrived resulting in a message count of " + this.msgCount );
             
             this._analyse(msg);
             
@@ -118,7 +132,7 @@ module.exports = class MessageAnalyzer {
             
             // Register a new timer (with a timeout interval of 1 second), in case no msg should arrive during the next second.
             this.timer = setInterval(function() {
-                //console.log("Timer called.  this.msgCount  = " + this.msgCount );
+                //console.log("Timer called.  this.newMsgCount  = " + this.newMsgCount );
                 
                 // Seems no msg has arrived during the last second, so register a zero count and no message
                 that._analyse(null);
@@ -135,7 +149,7 @@ module.exports = class MessageAnalyzer {
         // Register the time when the last message has arrived (or when the last timer was called, when no message has arrived)
         this.endTime = new Date().getTime();
                     
-        // Calculate the time interval (in seconds) since the first (unprocessed) message has arrived
+        // Calculate the seconds since the last time we arrived here
         var seconds = (this.endTime - this.startTime) / 1000;
         var remainder = (seconds - Math.floor(seconds)) * 1000;
         seconds = Math.floor(seconds);
@@ -145,45 +159,44 @@ module.exports = class MessageAnalyzer {
         this.endTime -= remainder;
         
         //console.log(seconds + " seconds between " + new Date(this.startTime).toISOString().slice(11, 23) + " and " + new Date(this.endTime).toISOString().slice(11, 23));
-        
-        // Store the message count (of the previous second) in the circular buffer.  However the timer can be
-        // delayed, so make sure this is done for EVERY second since the last time we got here ...
-        // 10 images/2,5 seconds = 240 images/second           
-        for(var i = 0; i < seconds; i++) {
-            // In the first second we store (the count of) all received messages, except the last one (that has been received in the next second).
-            // In the next second we store that remaining (single) last message.  In all later seconds (of this loop) we will store 0.
-            var addedMsgCount = (i == 0) ? Math.max(0, this.msgCount - 1) : Math.max(0, this.msgCount);
 
+        // Normally we will arrive here at least once every second.  However the timer can be delayed, which means it is N seconds ago since we last arrived here.
+        // In that case an output message needs to be send for every second cell in the ring buffer.
+        // We need to do this, before we can handle the new msg (because that belongs to the next cell second).
+        // In the first second we store (the count of) all received messages, except the last one (that has been received in the next second).
+        // Indeed all messages belong to the first second.  Because when - after that second - a new msg would have arrived, that second bucket
+        // would have been processed immediately.  So all msg statistics that are currently cached, belong to that first second bucket...
+        // In the next second we store that last message (if available).  In all later seconds (of this loop) we will store 0.
+        // This will be arranged at the end of the first loop (because we might not have a second loop ...).
+        for(var i = 0; i < seconds; i++) {
             // Check the content of the tail buffer cell (before it is being removed by inserting a new cell at the head), if available already.
             // When no cell available, then 0 messages will be removed from the buffer...
             var originalCellContent = {
                 msgCount: 0, 
-                msgStatistics: null 
-            };
+                msgStatistic: 0 
+            }
+            
             if (this.circularBuffer.size() >= this.bufferSize) {
                 originalCellContent = this.circularBuffer.get(this.bufferSize-1);
             }
             
-            var removedMsgCount = originalCellContent.msgCount;
-            
-            // The total msg count is the sum of all message counts in the circular buffer.  Instead of summing all those
-            // buffer cells continiously (over and over again), we will update the sum together with the buffer content.
+            // The total msg count is the sum of all message counts in the circular buffer.  Instead of summing all those buffer cells continiously 
+            // (over and over again), we will update the sum together with the buffer content: this is much FASTER.
             // Sum = previous sum + message count of last second (which is going to be added to the buffer) 
             //                    - message count of the first second (which is going to be removed from the buffer).
-            this.totalMsgCount = this.totalMsgCount + addedMsgCount - removedMsgCount;
+            this.msgCountInBuffer = this.msgCountInBuffer + this.newMsgCount - originalCellContent.msgCount;
             
-            // The message count that has already been added, shouldn't be added again the next second
-            this.msgCount = Math.max(0, this.msgCount - addedMsgCount);
-            
-            var newMsgStatistics = this.calculateMsgStatistics(addedMsgCount, originalCellContent.msgStatistics, msg);
-            
+            // Same way of working for the msg statistic ...
+            this.msgStatisticInBuffer = this.msgStatisticInBuffer + this.newMsgStatistic - originalCellContent.msgStatistic;
+
             // Store the new msg count in the circular buffer (which will also trigger deletion of the oldest cell at the buffer trail), together with the msg data
             this.circularBuffer.enq({
-                msgCount: addedMsgCount,
-                msgStatistics: newMsgStatistics 
+                msgCount: this.newMsgCount,
+                msgStatistic: this.newMsgStatistic 
             }); 
             
-            var totalMsgCount = this.totalMsgCount;
+            var msgCountInBuffer = this.msgCountInBuffer;
+            var msgStatisticInBuffer = this.msgStatisticInBuffer;
             var isStartup = false;
             
             // Do a linear interpolation if required (only relevant in the startup period)
@@ -191,40 +204,50 @@ module.exports = class MessageAnalyzer {
                  isStartup = true;
 
                  if (this.estimationStartup == true && this.circularBuffer.size() > 0) {
-                    totalMsgCount = Math.floor(totalMsgCount * this.circularBuffer.capacity() / this.circularBuffer.size());
+                    msgCountInBuffer = Math.floor(msgCountInBuffer * this.circularBuffer.capacity() / this.circularBuffer.size());
+                    msgStatisticInBuffer = Math.floor(msgStatisticInBuffer * this.circularBuffer.capacity() / this.circularBuffer.size());
                 }
             }
             
             // Update the status in the editor with the last message count (only if it has changed), or when switching between startup and real
-            if (this.prevTotalMsgCount != this.totalMsgCount || this.prevStartup != isStartup) {
-                this.changeStatus(totalMsgCount, originalCellContent.msgStatistics, isStartup);
+            if (this.prevTotalMsgCount != this.msgCountInBuffer || this.prevMsgStatisticInBuffer != this.msgStatisticInBuffer || this.prevStartup != isStartup) {
+                this.changeStatus(msgCountInBuffer, msgStatisticInBuffer, isStartup);
                 
-                this.prevTotalMsgCount = totalMsgCount;
+                this.prevTotalMsgCount = msgCountInBuffer;
+                this.prevMsgStatisticInBuffer = msgStatisticInBuffer;
             }
 
             // Send a message on the first output port, when not ignored during the startup period
             if (this.ignoreStartup == false || isStartup == false) {
-                this.sendMsg(totalMsgCount, newMsgStatistics);
+                this.sendMsg(msgCountInBuffer, msgStatisticInBuffer);
             }
+            
+            // When everything has been send (in the first second), start from 0 again
+            this.newMsgCount = 0;
+            this.newMsgStatistic = 0;
+            
+            // Our new second starts at the end of the previous second
+            this.startTime = this.endTime;
             
             this.prevStartup = isStartup;
         }
         
-        if (seconds > 0) {
-            // Our new second starts at the end of the previous second
-            this.startTime = this.endTime;
+        // When there is a message, it's statistics needs to be added to the NEXT second cell. 
+        if (msg) {
+            this.newMsgCount += 1;
+            this.newMsgStatistic += this.calculateMsgStatistic(msg);
         }
     }
     
-    calculateMsgStatistics(totalMsgCount, msg, originalMsgStatistics) {
-        // The caller should override this method, to return the new msg statistics!!!!
+    calculateMsgStatistic(msg) {
+        // The caller should override this method, to return the new msg statistic (numeric) value!!!!
     }
     
-    sendMsg(totalMsgCount, newMsgStatistics) {
+    sendMsg(msgCountInBuffer, msgStatisticInBuffer) {
         // The caller should override this method, to send an output message!!!!
     }
     
-    changeStatus(totalMsgCount, newMsgStatistics, isStartup) {
+    changeStatus(msgCountInBuffer, msgStatisticInBuffer, isStartup) {
         // The caller should override this method, to change the node status!!!!
     }
 };
