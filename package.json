@@ -20,8 +20,5 @@
     "repository": {
         "type": "git",
         "url": "https://github.com/Inovum/nr-msg-statistics.git"
-    },
-    "scripts": {
-        "postinstall": "cd ./node_modules/circular-buffer && npm install"
     }
 }
