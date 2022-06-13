@@ -7,17 +7,14 @@
     },
     "license": "Apache-2.0",
     "dependencies": {
-        "circular-buffer": "^1.0.2",
+        "circular-buffer": "https://github.com/Inovum/nr-msg-statistics.git",
         "mathjs": "^7.2.0"
     },
     "main": "msg_analyzer.js",
     "keywords": ["msg", "analyzer", "statistics"],
-    "bugs": {
-          "url": "https://github.com/bartbutenaers/nr-msg-statistics/issues"
-    },
-    "homepage": "https://github.com/bartbutenaers/nr-msg-statistics",
+    "homepage": "https://github.com/Inovum/nr-msg-statistics",
     "repository": {
         "type": "git",
-        "url": "https://github.com/bartbutenaers/nr-msg-statistics.git"
+        "url": "https://github.com/Inovum/nr-msg-statistics.git"
     }
 }

@@ -136,7 +136,7 @@ module.exports = class MessageAnalyzer {
                 
                 // Seems no msg has arrived during the last second, so register a zero count and no message
                 that._analyse(null);
-            }, 1000);
+            }, 60000);
         }
     }
 
