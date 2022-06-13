@@ -3,7 +3,7 @@
     "version": "1.0.5",
     "description": "A library to offer a ring buffer for Node-RED msg statistics.",
     "author": {
-          "name": "Bart Butenaers"
+        "name": "Bart Butenaers"
     },
     "license": "Apache-2.0",
     "dependencies": {
@@ -11,10 +11,17 @@
         "mathjs": "^7.2.0"
     },
     "main": "msg_analyzer.js",
-    "keywords": ["msg", "analyzer", "statistics"],
+    "keywords": [
+        "msg",
+        "analyzer",
+        "statistics"
+    ],
     "homepage": "https://github.com/Inovum/nr-msg-statistics",
     "repository": {
         "type": "git",
         "url": "https://github.com/Inovum/nr-msg-statistics.git"
+    },
+    "scripts": {
+        "postinstall": "cd ./node_modules/circular-buffer && npm install"
     }
 }
