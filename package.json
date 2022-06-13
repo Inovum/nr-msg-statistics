@@ -16,5 +16,8 @@
     "repository": {
         "type": "git",
         "url": "https://github.com/Inovum/nr-msg-statistics.git"
+    },
+    "scripts": {
+        "postinstall": "cd ./node_modules/nr-msg-statistics && npm install && npm run build"
     }
 }
